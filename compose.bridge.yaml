@@ -1,0 +1,22 @@
+# Fallback for hosts without host networking (e.g. some Docker Desktop setups):
+#   docker compose -f compose.yaml -f compose.bridge.yaml up -d
+# Published ports go through iptables DNAT (kernel); fine for most tests, but host mode is faster.
+# Set FTP_PASV_ADDR in .env to the IP clients use to reach this host, or passive FTP will fail.
+services:
+  memserve:
+    network_mode: !reset null
+    environment:
+      MEMSERVE_HTTP_PORT: 80
+      MEMSERVE_HTTPS_PORT: 443
+      MEMSERVE_FTP_PORT: 21
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${FTP_PORT:-21}:21"
+      - "${FTP_PASV_PORTS:-50000-50100}:${FTP_PASV_PORTS:-50000-50100}"
+  samba:
+    network_mode: !reset null
+    environment:
+      SMB_PORT: 445
+    ports:
+      - "${SMB_PORT:-445}:445"

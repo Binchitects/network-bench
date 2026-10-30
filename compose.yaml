@@ -1,0 +1,57 @@
+# High-bandwidth test file servers, all data in RAM.
+#   memserve : HTTP/HTTPS + FTP/FTPS, virtual files of any size from a RAM pattern, zero-copy for plain TCP
+#   samba    : SMB2/3 serving real files from a tmpfs (RAM) mount
+# Host networking: no NAT, no docker-proxy, so Docker adds no data-path overhead.
+# Ports and sizes come from .env (see .env.example).
+name: netbench
+
+x-common: &common
+  network_mode: host
+  restart: unless-stopped
+  ulimits:
+    nofile: { soft: 1048576, hard: 1048576 }
+
+services:
+  memserve:
+    <<: *common
+    build: { context: ., dockerfile: docker/memserve/Dockerfile }
+    image: memserve:latest
+    # CPUs memserve may run on. On hybrid Intel CPUs pin to the P-cores (e.g. 0-15 on an i7-13700K):
+    # TLS runs ~3x faster there than on E-cores. Empty = all CPUs.
+    cpuset: "${MEMSERVE_CPUSET:-}"
+    # to use your own certificate: put cert.pem/key.pem in ./certs and set TLS_CERT=/certs/cert.pem TLS_KEY=/certs/key.pem
+    # volumes: ["./certs:/certs:ro"]
+    environment:
+      MEMSERVE_HTTP_PORT: ${HTTP_PORT:-80}
+      MEMSERVE_HTTPS_PORT: ${HTTPS_PORT:-443}
+      MEMSERVE_FTP_TLS: ${FTP_TLS:-true}
+      # TLS engine: auto = OpenSSL with kernel TLS when the host has the tls module loaded (sudo modprobe tls)
+      MEMSERVE_KTLS: ${KTLS:-auto}
+      # PEM certificate and key inside the container; empty = self-signed, generated at start
+      MEMSERVE_TLS_CERT: ${TLS_CERT:-}
+      MEMSERVE_TLS_KEY: ${TLS_KEY:-}
+      MEMSERVE_FTP_PORT: ${FTP_PORT:-21}
+      MEMSERVE_FTP_PASV_PORTS: ${FTP_PASV_PORTS:-50000-50100}
+      MEMSERVE_FTP_PASV_ADDR: ${FTP_PASV_ADDR:-}
+      MEMSERVE_BACKING: ${MEMSERVE_BACKING:-1G}
+      MEMSERVE_FILES: ${MEMSERVE_FILES:-1M,10M,100M,1G,10G,100G,1T}
+      MEMSERVE_STATS_INTERVAL: ${STATS_INTERVAL:-1}
+      # tells membench where the Samba share is (memserve itself does not serve SMB)
+      MEMSERVE_SMB_SHARE: ${SMB_SHARE:-bench}
+      MEMSERVE_SMB_PORT: ${SMB_PORT:-445}
+
+  samba:
+    <<: *common
+    build: { context: docker/samba }
+    image: memserve-samba:latest
+    tmpfs:
+      - /data:size=${SMB_TMPFS_SIZE:-16g},mode=1777
+    environment:
+      SMB_PORT: ${SMB_PORT:-445}
+      SMB_SHARE: ${SMB_SHARE:-bench}
+      SMB_USER: ${SMB_USER:-bench}
+      SMB_PASS: ${SMB_PASS:-bench}
+      SMB_GUEST: ${SMB_GUEST:-yes}
+      SMB_FILES: ${SMB_FILES:-1G,10G}
+      SMB_INTERFACES: ${SMB_INTERFACES:-}
+      SMB_ENCRYPT: ${SMB_ENCRYPT:-default}
