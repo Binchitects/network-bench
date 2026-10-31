@@ -12,6 +12,8 @@ The servers use **host networking**, so Docker's NAT and userland proxy are not 
 
 ## Quick start
 
+New here? The [simple usage guide](docs/USAGE.md) is the short version: CI artifacts and Docker images, start the server, run the client.
+
 ```bash
 cp .env.example .env        # optional: ports, sizes, credentials
 docker compose up -d --build
@@ -269,7 +271,7 @@ cd src/MemServe && dotnet publish -c Release -r linux-x64 --self-contained -p:Pu
 scripts/publish-membench.sh linux-x64 && dist/linux-x64/membench http://SERVER:8080/ -c 4
 ```
 
-memserve's zero-copy paths and kernel TLS are Linux-only; it has a plain-`send()` fallback elsewhere, but only Linux has been tested. membench runs on Linux and Windows (see above).
+memserve's zero-copy paths and kernel TLS are Linux-only. The Windows build uses a plain-`send()` copy path and is built and smoke-tested (HTTP and HTTPS) in CI; expect lower throughput there. membench runs on Linux and Windows (see above). Prebuilt single-file binaries for both programs are attached to each GitHub **Release** (see [docs/USAGE.md](docs/USAGE.md)).
 
 ## Tuning for 25–400 Gb/s links
 
@@ -288,5 +290,5 @@ Run membench first: it tells you which of these matters.
 - memserve uses one flat directory. FTPS is explicit only (no implicit FTPS on port 990), and data connections don't require TLS session reuse.
 - SMB files are real tmpfs files, so their size is real RAM.
 - membench speaks HTTP/1.1 and HTTPS (Content-Length or read-until-close), FTP and explicit FTPS in passive mode, and files. It has no native SMB client: use a cifs mount on Linux or a mapped drive on Windows, plus file mode.
-- The Windows build of membench was cross-compiled and its portable code paths were tested on Linux (`MEMBENCH_PORTABLE=1`). It hasn't been run on a real Windows machine yet; the Windows-only calls (thread IDs, `SIO_TCP_INFO`, unbuffered files) are untested.
+- The Windows build of membench is built and run against a Windows memserve in CI (HTTP and HTTPS). File mode and the Windows-only `SIO_TCP_INFO` path are not covered there; the Linux build's portable code paths are also tested with `MEMBENCH_PORTABLE=1`.
 - When membench stops mid-download it aborts its connections, and memserve stops sending once it sees the client hang up. memserve treats a client that half-closes during a bulk kTLS download as gone.
