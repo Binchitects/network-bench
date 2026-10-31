@@ -262,8 +262,16 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Download by pattern: "all artifacts" also picks up the docker buildx cache
+      # entries (XCisCoX~network-bench~*.dockerbuild), which have no downloadable archive.
       - uses: actions/download-artifact@v4
         with:
+          pattern: membench-*
+          path: artifacts
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: memserve-*
           path: artifacts
 
       - name: Package
