@@ -23,8 +23,13 @@ Open a run and download what you need from **Artifacts**:
 | `membench-linux-x64`, `membench-linux-arm64` | standalone client, no .NET install needed |
 | `membench-win-x64`, `membench-win-arm64` | `membench.exe` for Windows |
 | `memserve-linux-x64`, `memserve-linux-arm64` | standalone server |
+| `memserve-win-x64`, `memserve-win-arm64` | `memserve.exe` for Windows (portable copy mode) |
 
-Tag a commit `v1.2.3` to get the same files zipped and attached to a GitHub **Release**:
+Each Actions artifact is a zip, e.g. `membench-win-x64.zip` contains `membench.exe`.
+
+For direct downloads, push a `v*` tag. The GitHub **Release** contains the files unzipped and
+platform-named, e.g. `netbench-membench-win-x64.exe`, `netbench-memserve-win-x64.exe`,
+`netbench-membench-linux-x64`:
 
 ```bash
 git tag v1.2.3
@@ -48,11 +53,11 @@ or make the package public under the repository's **Packages** settings:
 echo "$CR_PAT" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
 ```
 
-Artifacts are not executable after download, so run `chmod +x` on Linux/macOS (Windows ignores it):
+On Linux/macOS the downloaded binary needs the execute bit (Windows ignores this):
 
 ```bash
-unzip netbench-membench-linux-x64.zip -d netbench
-chmod +x netbench/membench
+chmod +x netbench-membench-linux-x64
+./netbench-membench-linux-x64 --help
 ```
 
 ### Or build locally
@@ -81,6 +86,16 @@ Without root, use high ports:
 
 The server prints the addresses it listens on and a live Gb/s line while traffic flows.
 Without your own certificate it creates a self-signed one, so clients need `-k`.
+
+### Standalone (Windows)
+
+```bat
+memserve.exe --http-port 8080 --https-port 8443 --ftp-port 2121
+```
+
+No .NET installation is needed. Windows has no zero-copy or kernel TLS, so memserve copies
+data and HTTPS runs in user space; it is fine for LAN testing, but a Linux server reaches much
+higher rates. Allow `memserve.exe` through Windows Firewall for the ports you use.
 
 ### Docker Compose (recommended)
 
@@ -159,7 +174,42 @@ membench 10.0.0.5
 
 ---
 
-## 4. Where the report goes
+## 4. Offline Windows test (no internet needed)
+
+Download from the repository's **Releases** page on any online PC:
+
+- `netbench-memserve-win-x64.exe` — the server
+- `netbench-membench-win-x64.exe` — the client
+
+Copy both files to the offline PC. No .NET, Docker or internet connection is required.
+
+**Server PC** (or the same PC):
+
+```bat
+memserve.exe --http-port 8080 --https-port 8443 --ftp-port 2121
+```
+
+Allow `memserve.exe` through Windows Firewall when prompted.
+
+**Client PC**:
+
+```bat
+membench.exe SERVER-IP:8080
+membench.exe SERVER-IP:8080 -c 8
+```
+
+**Both on one PC** (loopback):
+
+```bat
+membench.exe 127.0.0.1:8080
+```
+
+Windows SmartScreen may warn about an unsigned executable: **More info → Run anyway**.
+The Windows server uses the portable copy path; for the highest rates, run memserve on Linux.
+
+---
+
+## 5. Where the report goes
 
 The full test plan writes:
 
@@ -175,7 +225,7 @@ Each test case is `PASS`, `WARN`, `SKIP` (protocol unavailable) or `FAIL`.
 
 ---
 
-## 5. Common issues
+## 6. Common issues
 
 | Symptom | Fix |
 |---|---|
@@ -185,6 +235,8 @@ Each test case is `PASS`, `WARN`, `SKIP` (protocol unavailable) or `FAIL`.
 | Client can't reach the server | Check the firewall for TCP 80/443/21/445 and UDP/TCP passive ports `50000-50100` |
 | Docker data path looks slow | Use host networking (`network_mode: host`, Linux) rather than the bridge |
 | `membench` says `no memserve found` | Pass `host:port` of the HTTP port, e.g. `10.0.0.5:8080` |
+| Windows blocks `memserve.exe` / `membench.exe` | SmartScreen: **More info → Run anyway**; firewall: allow the executable on the private network |
+| Windows server is slower than expected | Expected: no zero-copy and no kernel TLS on Windows. Use a Linux server for maximum throughput |
 
 TLS is much faster with kernel TLS enabled on the server host:
 
