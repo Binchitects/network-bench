@@ -12,6 +12,8 @@ The servers use **host networking**, so Docker's NAT and userland proxy are not 
 
 ## Quick start
 
+New here? The [simple usage guide](docs/USAGE.md) is the short version: CI artifacts and Docker images, start the server, run the client.
+
 ```bash
 cp .env.example .env        # optional: ports, sizes, credentials
 docker compose up -d --build
